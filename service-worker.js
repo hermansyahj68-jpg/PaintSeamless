@@ -3,7 +3,7 @@ const CACHE_NAME = "paintSeamless-v1.0";
 const urlsToCache = [
   "./",
   "./index.html",
-  "./icon.jpg",
+  "./icon.png",
   "./manifest.json"
 ];
 
