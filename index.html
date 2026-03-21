@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+      <link rel="stylesheet" href="style.css?v=1.2">
+    
+     <!-- ICON -->
+<link rel="icon" href="icon.png">
+<link rel="apple-touch-icon" href="icon.png">
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#121212">
+
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+
+    <title>EditorGambar(Seamless)</title>
+    <style>
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        
+        body {
+            background-color: #222;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: Arial, sans-serif;
+            color: #ccc;
+            overflow: hidden;
+            touch-action: none; 
+            margin-top: 50px;
+        }
+
+        .ui-panel {
+            width: 100%;
+            max-width: 500px;
+            background-color: #333;
+            border-bottom-left-radius: 15px;
+            border-bottom-right-radius: 15px;
+            padding: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            z-index: 20;
+            flex-shrink: 0;
+        }
+
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 8px;
+            justify-content: center;
+        }
+
+        .icon-btn {
+            background-color: #2e5873;
+            border: 1px solid #0088c7;
+            border-radius: 6px;
+            padding: 3px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: 0.2s;
+            color: white;
+            flex: 0 0 calc((100% - 48px) / 9);
+            height: 35px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            touch-action: manipulation;
+        }
+        .icon-btn:active { background-color: #00ffff; }
+        .icon-btn.active { background-color: #ff3b30; border-color: #ff3b30; }
+        
+        #btnShift.active { background-color: #ffcc00; color: #000; border-color: #ffcc00; }
+
+        .menu-text { font-size: 7px; margin-top: 2px; color: white; }
+
+        .settings-panel {
+            display: none;
+            margin-top: 8px;
+            background: #2a2a2a;
+            padding: 8px;
+            border-radius: 10px;
+            font-size: 7px;
+        }
+
+        .settings-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .input-group { display: flex; align-items: center; gap: 3px; }
+
+        input[type="number"] {
+            background-color: #1a1a1a;
+            border: 1px solid #0088c7;
+            color: white;
+            padding: 3px;
+            width: 50px;
+            border-radius: 4px;
+            font-size: 8px;
+        }
+
+        .slider-container { display: flex; flex-direction: column; gap: 4px; }
+        .slider-row { display: flex; align-items: center; gap: 8px; }
+        .slider-row label { width: 80px; font-size: 11px; text-align: right;}
+        input[type="range"] { flex-grow: 1; accent-color: #007aff; height: 3px; }
+        .value-label { width: 25px; text-align: left; font-size: 11px; color: #aaa; }
+
+        #canvasBox {
+            flex: 1;
+            width: 100%;
+            position: relative;
+            overflow: hidden;
+            background-color: #1a1a1a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            touch-action: none; 
+        }
+
+        #canvasBox.shift-mode { cursor: crosshair; }
+
+        #viewCanvas {
+            background-color: #ffffff; 
+            background-image: linear-gradient(45deg, #eee 25%, transparent 25%, transparent 75%, #eee 75%, #eee), 
+                              linear-gradient(45deg, #eee 25%, white 25%, white 75%, #eee 75%, #eee);
+            background-size: 20px 20px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            image-rendering: pixelated;
+        }
+
+        .grid-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            background-image: 
+                linear-gradient(rgba(255, 204, 0, 0.15) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 204, 0, 0.15) 1px, transparent 1px);
+            background-size: 50px 50px;
+            z-index: 15;
+            display: none;
+        }
+        #canvasBox.shift-mode .grid-overlay { display: block; }
+    </style>
+</head>
+<body>
+
+<div class="ui-panel">
+    <div class="toolbar">
+        <button class="icon-btn" onclick="loadImage()">🗂️<span class="menu-text">gambar</span></button>
+        <button class="icon-btn" onclick="loadBrush()">🎨<span class="menu-text">brush</span></button>
+        <button class="icon-btn" id="btnDraw" onclick="setMode('draw')">🖌️<span class="menu-text">draw</span></button>
+        <button class="icon-btn active" id="btnMove" onclick="setMode('move')">✋<span class="menu-text">geser</span></button>
+        <button class="icon-btn" id="btnShift" onclick="setMode('shift')">🔄<span class="menu-text">seamless</span></button>
+        <button class="icon-btn" onclick="undo()">↩️<span class="menu-text">undo</span></button>
+        <button class="icon-btn" onclick="redo()">↪️<span class="menu-text">redo</span></button>
+        <button class="icon-btn" id="btnFlipY" onclick="toggleFlipY()">🔃<span class="menu-text">flip Y</span></button>
+        <button class="icon-btn" id="btnFlipX" onclick="toggleFlipX()">🔁<span class="menu-text">flip X</span></button>
+        <button class="icon-btn" id="btnMirror" onclick="toggleMirror()">🪞<span class="menu-text">mirror</span></button>
+        <button class="icon-btn" onclick="savePNG()">📤<span class="menu-text">simpan</span></button>
+        <button class="icon-btn" onclick="toggleSettings()">⚙️<span class="menu-text">setting</span></button>
+    </div>
+
+    <div id="settingsPanel" class="settings-panel">
+        <div class="settings-row">
+            <div class="input-group">
+                <button class="icon-btn" onclick="newCanvas()" style="flex:none; width:auto; padding:5px;">📄<span class="menu-text">New</span></button>
+                <label>W:</label><input type="number" id="canvasW" value="800">
+            </div>
+            <div class="input-group">
+                <label>H:</label><input type="number" id="canvasH" value="800">
+            </div>
+            <span>Zoom: <span id="zoomVal">100</span>%</span>
+        </div>
+
+        <div class="slider-container">
+            <div class="slider-row">
+                <label>Ukuran Brush:</label>
+                <input type="range" id="brushSize" min="50" max="3000" value="50">
+                <span class="value-label" id="brushSizeVal">50</span>
+            </div>
+            <div class="slider-row">
+                <label>Kepadatan:</label>
+                <input type="range" id="densitySlider" min="1" max="100" value="30">
+                <span class="value-label" id="densityVal">30</span>
+            </div>
+            <div class="slider-row">
+                <label>Transparansi:</label>
+                <input type="range" id="opacitySlider" min="1" max="100" value="100">
+                <span class="value-label" id="opacityVal">100</span>
+            </div>
+            <div class="slider-row">
+                <label>Cermin Fade:</label>
+                <input type="range" id="mirrorFadeSlider" min="0" max="100" value="25">
+                <span class="value-label" id="mirrorFadeVal">25</span>
+            </div>
+            <div class="input-group">
+                <label>Offset:</label>
+                <input type="number" id="mirrorOffsetInput" value="0.9" step="0.1">
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="canvasBox">
+    <canvas id="viewCanvas"></canvas>
+    <div class="grid-overlay"></div>
+</div>
+
+<input type="file" id="imageInput" accept="image/*" hidden>
+<input type="file" id="brushInput" accept="image/*" hidden>
+
+<script>
+let mirrorOffsetFactor = 0.9;
+let mirrorFade = 0.25;
+let mirrorMode = false;
+let brushType = "normal";
+let waveOffset = 0;
+let flipX = 1;
+let flipY = 1;
+let opacityValue = 1.0;
+let brushSizeValue = 50;
+let densityValue = 30;
+
+function toggleSettings() {
+    const panel = document.getElementById("settingsPanel");
+    panel.style.display = (panel.style.display === "block") ? "none" : "block";
+}
+
+(function() {
+    const canvasBox = document.getElementById("canvasBox");
+    const canvas = document.getElementById("viewCanvas");
+    const ctx = canvas.getContext("2d");
+    const zoomValLabel = document.getElementById("zoomVal");
+    const brushSlider = document.getElementById("brushSize");
+    const brushSizeValLabel = document.getElementById("brushSizeVal");
+    const densitySlider = document.getElementById("densitySlider");
+    const densityValLabel = document.getElementById("densityVal");
+    const opacitySlider = document.getElementById("opacitySlider");
+    const opacityValLabel = document.getElementById("opacityVal");
+
+    let drawCanvas = document.createElement("canvas");
+    let drawCtx = drawCanvas.getContext("2d");
+    let tempCanvas = document.createElement("canvas");
+    let tempCtx = tempCanvas.getContext("2d");
+    
+    let baseImage = null, brush = null;
+    let mode = "move";
+    let strokes = [];  
+    let redoStack = [];
+
+    let scale = 1.0; 
+    let offsetX = 0, offsetY = 0;
+    let isDragging = false;
+    let lastPointerX = 0, lastPointerY = 0;
+    let lastDrawX = 0, lastDrawY = 0;
+    let shiftStartX, shiftStartY;
+    
+    let initialPinchDist = null, initialScale = 1.0;
+    let pinchCenterX = 0, pinchCenterY = 0;
+    const GRID_SIZE = 50;
+
+    function init() {
+        resizeCanvasToWindow();
+        drawCanvas.width = 800;
+        drawCanvas.height = 800;
+        drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+        centerCamera();
+        requestAnimationFrame(render);
+    }
+
+    function resizeCanvasToWindow() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+    
+    window.addEventListener('resize', () => { resizeCanvasToWindow(); centerCamera(); });
+
+    function centerCamera() {
+        const margin = 50;
+        offsetX = margin;
+        offsetY = margin + 75;
+        scale = Math.min((window.innerWidth - 100) / drawCanvas.width, (window.innerHeight - 200) / drawCanvas.height, 2);
+        scale = Math.max(0.1, scale);
+    }
+
+    brushSlider.oninput = () => { brushSizeValue = parseInt(brushSlider.value); brushSizeValLabel.textContent = brushSlider.value; };
+    opacitySlider.oninput = () => { opacityValue = opacitySlider.value / 100; opacityValLabel.textContent = opacitySlider.value; };
+    densitySlider.oninput = () => { densityValue = parseInt(densitySlider.value); densityValLabel.textContent = densitySlider.value; };
+
+    function saveState() {
+        strokes.push(drawCtx.getImageData(0, 0, drawCanvas.width, drawCanvas.height));
+        if (strokes.length > 25) strokes.shift();
+        redoStack = [];
+    }
+
+    function applyGridShift(dx, dy) {
+        const gridX = Math.round(dx / GRID_SIZE) * GRID_SIZE;
+        const gridY = Math.round(dy / GRID_SIZE) * GRID_SIZE;
+        if (gridX === 0 && gridY === 0) return;
+        
+        const w = drawCanvas.width;
+        const h = drawCanvas.height;
+        let shiftX = gridX % w;
+        let shiftY = gridY % h;
+        if (shiftX < 0) shiftX += w;
+        if (shiftY < 0) shiftY += h;
+
+        tempCanvas.width = w;
+        tempCanvas.height = h;
+        tempCtx.clearRect(0, 0, w, h);
+
+        tempCtx.drawImage(drawCanvas, 0, 0, w - shiftX, h - shiftY, shiftX, shiftY, w - shiftX, h - shiftY);
+        tempCtx.drawImage(drawCanvas, w - shiftX, 0, shiftX, h - shiftY, 0, shiftY, shiftX, h - shiftY);
+        tempCtx.drawImage(drawCanvas, 0, h - shiftY, w - shiftX, shiftY, shiftX, 0, w - shiftX, shiftY);
+        tempCtx.drawImage(drawCanvas, w - shiftX, h - shiftY, shiftX, shiftY, 0, 0, shiftX, shiftY);
+
+        drawCtx.clearRect(0, 0, w, h);
+        drawCtx.drawImage(tempCanvas, 0, 0);
+    }
+
+    function render() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#1a1a1a";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.save();
+        ctx.translate(offsetX, offsetY);
+        ctx.scale(scale, scale);
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, drawCanvas.width, drawCanvas.height);
+        ctx.drawImage(drawCanvas, 0, 0);
+        ctx.strokeStyle = (mode === 'shift') ? "#ffcc00" : "#444";
+        ctx.lineWidth = 1 / scale; 
+        ctx.strokeRect(0, 0, drawCanvas.width, drawCanvas.height);
+        ctx.restore();
+        zoomValLabel.innerText = Math.round(scale * 100);
+        requestAnimationFrame(render);
+    }
+
+    function getInternalCoord(clientX, clientY) {
+        const rect = canvas.getBoundingClientRect();
+        return {
+            x: (clientX - rect.left - offsetX) / scale,
+            y: (clientY - rect.top - offsetY) / scale
+        };
+    }
+
+    function startInteraction(x, y) {
+        isDragging = true;
+        lastPointerX = x; 
+        lastPointerY = y;
+        const internal = getInternalCoord(x, y);
+        lastDrawX = internal.x; 
+        lastDrawY = internal.y;
+        
+        if (mode === 'draw' && brush) {
+            if (internal.x >= 0 && internal.x <= drawCanvas.width && internal.y >= 0 && internal.y <= drawCanvas.height) {
+                saveState(); // Simpan SEBELUM coretan
+                addBrushPoint(internal.x, internal.y);
+            } else { isDragging = false; }
+        }
+        else if (mode === 'shift') { 
+            saveState(); // Simpan SEBELUM geser
+            shiftStartX = internal.x;
+            shiftStartY = internal.y;
+        }
+    }
+
+    function moveInteraction(x, y) {
+        if (!isDragging) return;
+        const dx = x - lastPointerX;
+        const dy = y - lastPointerY;
+        
+        if (mode === 'move') {
+            offsetX += dx; offsetY += dy;
+            lastPointerX = x; lastPointerY = y;
+        } 
+        else if (mode === 'draw' && brush) {
+            const internal = getInternalCoord(x, y);
+            const dist = Math.hypot(internal.x - lastDrawX, internal.y - lastDrawY);
+            if (dist > brushSizeValue / (densityValue * 2)) {
+                addBrushPoint(internal.x, internal.y);
+                lastDrawX = internal.x; lastDrawY = internal.y;
+            }
+            lastPointerX = x; lastPointerY = y;
+        }
+        else if (mode === 'shift') {
+            lastPointerX = x; lastPointerY = y;
+        }
+    }
+
+    function endInteraction() {
+        if (isDragging && mode === 'shift' && shiftStartX !== undefined) {
+            const internal = getInternalCoord(lastPointerX, lastPointerY);
+            const deltaX = internal.x - shiftStartX;
+            const deltaY = internal.y - shiftStartY;
+            const gridDeltaX = Math.round(deltaX / GRID_SIZE) * GRID_SIZE;
+            const gridDeltaY = Math.round(deltaY / GRID_SIZE) * GRID_SIZE;
+
+            if (gridDeltaX !== 0 || gridDeltaY !== 0) {
+                applyGridShift(gridDeltaX, gridDeltaY);
+            } else {
+                strokes.pop(); // Batal simpan state jika tidak ada pergerakan grid
+            }
+        }
+        isDragging = false;
+        shiftStartX = undefined; shiftStartY = undefined;
+    }
+
+    function addBrushPoint(ix, iy) {
+        const size = brushSizeValue;
+        const ratio = brush.width / brush.height;
+        let dw = ratio >= 1 ? size : size * ratio;
+        let dh = ratio >= 1 ? size / ratio : size;
+        let drawX = ix; let drawY = iy;
+
+        if (brushType === "wave") {
+            waveOffset += 0.3;
+            drawY += Math.sin(waveOffset) * (size * 0.2);
+        }
+
+        drawCtx.save();
+        drawCtx.translate(drawX, drawY);
+        drawCtx.scale(flipX, flipY);
+        drawCtx.globalAlpha = opacityValue;
+        drawCtx.drawImage(brush, -dw/2, -dh/2, dw, dh);
+        drawCtx.restore();
+
+        if (mirrorMode) {
+            const mirrorY = drawY + (dh * mirrorOffsetFactor) + 10;
+            drawCtx.save();
+            drawCtx.translate(drawX, mirrorY);
+            drawCtx.scale(flipX, -flipY);
+            drawCtx.globalAlpha = opacityValue * mirrorFade;
+            drawCtx.drawImage(brush, -dw/2, -dh/2, dw, dh);
+            drawCtx.restore();
+        }
+    }
+
+    // Input Events
+    canvas.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        if (e.touches.length === 2) handlePinchStart(e);
+        else if (e.touches.length === 1) startInteraction(e.touches[0].pageX, e.touches[0].pageY);
+    }, { passive: false });
+    canvas.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        if (e.touches.length === 2) handlePinchMove(e);
+        else if (e.touches.length === 1) moveInteraction(e.touches[0].pageX, e.touches[0].pageY);
+    }, { passive: false });
+    canvas.addEventListener('touchend', (e) => {
+        if (e.touches.length < 2) initialPinchDist = null;
+        if (e.touches.length === 0) endInteraction();
+    });
+    canvas.addEventListener('mousedown', (e) => startInteraction(e.pageX, e.pageY));
+    window.addEventListener('mousemove', (e) => moveInteraction(e.pageX, e.pageY));
+    window.addEventListener('mouseup', endInteraction);
+
+    function handlePinchStart(e) {
+        const t1 = e.touches[0], t2 = e.touches[1];
+        initialPinchDist = Math.hypot(t1.pageX - t2.pageX, t1.pageY - t2.pageY);
+        initialScale = scale;
+        const centerX = (t1.pageX + t2.pageX) / 2, centerY = (t1.pageY + t2.pageY) / 2;
+        const internal = getInternalCoord(centerX, centerY);
+        pinchCenterX = internal.x; pinchCenterY = internal.y;
+        isDragging = false;
+    }
+
+    function handlePinchMove(e) {
+        if (!initialPinchDist) return;
+        const t1 = e.touches[0], t2 = e.touches[1];
+        const newDist = Math.hypot(t1.pageX - t2.pageX, t1.pageY - t2.pageY);
+        let newScale = Math.max(0.05, Math.min(15, initialScale * (newDist / initialPinchDist)));
+        const nCX = (t1.pageX + t2.pageX) / 2, nCY = (t1.pageY + t2.pageY) / 2;
+        const rect = canvas.getBoundingClientRect();
+        offsetX = nCX - rect.left - (pinchCenterX * newScale);
+        offsetY = nCY - rect.top - (pinchCenterY * newScale);
+        scale = newScale;
+    }
+
+    window.setMode = (m) => {
+        mode = m;
+        document.getElementById("btnDraw").classList.toggle("active", m === "draw");
+        document.getElementById("btnMove").classList.toggle("active", m === "move");
+        document.getElementById("btnShift").classList.toggle("active", m === "shift");
+        canvasBox.classList.toggle("shift-mode", m === "shift");
+    };
+
+    window.newCanvas = () => {
+        const w = parseInt(document.getElementById("canvasW").value) || 800;
+        const h = parseInt(document.getElementById("canvasH").value) || 800;
+        drawCanvas.width = w; drawCanvas.height = h;
+        drawCtx.clearRect(0, 0, w, h);
+        strokes = []; redoStack = []; centerCamera();
+    };
+
+    window.undo = () => { 
+        if (strokes.length > 0) {
+            redoStack.push(drawCtx.getImageData(0, 0, drawCanvas.width, drawCanvas.height));
+            let last = strokes.pop();
+            drawCtx.putImageData(last, 0, 0);
+        }
+    };
+    
+    window.redo = () => { 
+        if (redoStack.length > 0) {
+            strokes.push(drawCtx.getImageData(0, 0, drawCanvas.width, drawCanvas.height));
+            let next = redoStack.pop();
+            drawCtx.putImageData(next, 0, 0);
+        }
+    };
+    
+    window.loadImage = () => document.getElementById("imageInput").click();
+    document.getElementById("imageInput").onchange = (e) => {
+        const file = e.target.files[0]; if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            const img = new Image();
+            img.onload = () => { 
+                drawCanvas.width = img.width; drawCanvas.height = img.height;
+                document.getElementById("canvasW").value = img.width;
+                document.getElementById("canvasH").value = img.height;
+                drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+                drawCtx.drawImage(img, 0, 0);
+                strokes = []; redoStack = []; centerCamera(); 
+            };
+            img.src = ev.target.result;
+        };
+        reader.readAsDataURL(file);
+    };
+
+    window.loadBrush = () => document.getElementById("brushInput").click();
+    document.getElementById("brushInput").onchange = (e) => {
+        const file = e.target.files[0]; if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            brush = new Image();
+            brush.onload = () => setMode('draw');
+            brush.src = ev.target.result;
+        };
+        reader.readAsDataURL(file);
+    };
+
+    window.savePNG = () => {
+        const link = document.createElement("a");
+        link.download = "texture_" + Date.now() + ".png";
+        link.href = drawCanvas.toDataURL("image/png");
+        link.click();
+    };
+
+    window.toggleFlipX = () => { flipX *= -1; document.getElementById("btnFlipX").classList.toggle("active", flipX === -1); };
+    window.toggleFlipY = () => { flipY *= -1; document.getElementById("btnFlipY").classList.toggle("active", flipY === -1); };
+    window.toggleMirror = () => { mirrorMode = !mirrorMode; document.getElementById("btnMirror").classList.toggle("active", mirrorMode); };
+
+    const mirrorFadeSlider = document.getElementById("mirrorFadeSlider");
+    mirrorFadeSlider.oninput = () => { mirrorFade = mirrorFadeSlider.value / 100; document.getElementById("mirrorFadeVal").textContent = mirrorFadeSlider.value; };
+    document.getElementById("mirrorOffsetInput").oninput = (e) => { mirrorOffsetFactor = parseFloat(e.target.value) || 0.9; };
+
+    init();
+})();
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('service-worker.js')
+  .then(function(reg){
+    console.log("Service Worker aktif", reg);
+  }).catch(function(err){
+    console.log("Service Worker gagal", err);
+  });
+        }
+</script>
+</body>
+</html>
