@@ -1,4 +1,4 @@
-const CACHE_NAME = "paintSeamless-v1.6";
+const CACHE_NAME = "paintSeamless-v1.7";
 
 const urlsToCache = [
   "./",
